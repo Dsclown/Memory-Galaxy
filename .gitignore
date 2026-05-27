@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# 个人配置与用户数据（勿提交）
+config.yaml
+data/

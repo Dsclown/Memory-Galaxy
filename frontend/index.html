@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memory Galaxy · 记忆星图</title>
+  <link rel="stylesheet" href="/assets/css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+</head>
+<body>
+  <header class="app-header">
+    <h1>Memory Galaxy</h1>
+    <span id="user-badge" class="badge user-badge hidden"></span>
+    <span id="status-badge" class="badge">连接中…</span>
+    <button type="button" id="logout-btn" class="btn-text hidden">退出</button>
+  </header>
+
+  <main id="app-main" class="layout hidden">
+    <!-- 左侧：聊天 -->
+    <section class="panel chat-panel">
+      <div class="panel-title">对话</div>
+      <div id="chat-messages" class="chat-messages"></div>
+      <form id="chat-form" class="chat-input-row">
+        <textarea id="chat-input" rows="2" placeholder="输入消息… (Enter 发送, Shift+Enter 换行)" required></textarea>
+        <button type="submit" id="send-btn">发送</button>
+      </form>
+    </section>
+
+    <!-- 右侧：星图记忆 -->
+    <section class="panel galaxy-panel">
+      <div class="panel-title">记忆星图</div>
+      <div id="galaxy-svg-wrap" class="galaxy-wrap">
+        <svg id="galaxy-svg"></svg>
+      </div>
+      <p class="galaxy-tip">展开后拖右下角改大小 · 工具栏增删分节/条目 · 拖标题栏/边框移动节点 · 空白处平移 · 滚轮缩放画布</p>
+    </section>
+  </main>
+
+  <!-- 登录 -->
+  <dialog id="login-dialog" class="login-dialog">
+    <form id="login-form">
+      <h2>登录</h2>
+      <p class="login-desc">输入用户名即可，聊天与记忆将按用户分别保存</p>
+      <input
+        id="login-username"
+        type="text"
+        placeholder="用户名（2–24 字）"
+        autocomplete="username"
+        required
+        minlength="2"
+        maxlength="24"
+      />
+      <button type="submit" class="btn-primary btn-block">进入星图</button>
+    </form>
+  </dialog>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/wiki-editor.js"></script>
+  <script src="/assets/js/starmap.js"></script>
+  <script src="/assets/js/chat.js"></script>
+  <script src="/assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+# Memory Galaxy 主配置文件（复制为 config.yaml 后修改，修改后需重启服务）
+
+server:
+  host: "0.0.0.0"
+  port: 8765
+  reload: true
+
+llm:
+  api_base: "https://api.openai.com/v1"
+  api_key: ""                    # 填入你的 API Key
+  model: "gpt-4o-mini"
+  timeout: 120                   # 请求超时（秒）
+  json_mode: true                # 兼容接口开启 JSON 输出（DeepSeek/OpenAI 等）
+  stream: true                   # 流式输出（SSE）
+  temperature:
+    router: 0.1                  # 模块路由
+    chat: 0.5                    # 对话与记忆更新
+    default: 0.3                 # 默认
+
+chat:
+  recent_turns_limit: 5          # 注入 LLM 的最近消息条数（user+assistant 各算一条）
+  empty_modules_hint: "（无相关已有模块）"
+
+auth:
+  session_secret: "change-me-to-a-random-secret"   # 生产环境请改为随机长字符串
+  username_min_length: 2
+  username_max_length: 24
+
+data:
+  dir: "data"
+
+prompts:
+  dir: "prompts"
