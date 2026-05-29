@@ -1,20 +1,133 @@
 const ChatUI = (() => {
   const box = () => document.getElementById("chat-messages");
-  function renderMessages(messages) {
+  const sidebar = () => document.getElementById("chat-date-sidebar");
+  const form = () => document.getElementById("chat-form");
+  const readonlyHint = () => document.getElementById("chat-readonly-hint");
+
+  let selectedDate = null;
+  let todayDate = null;
+  let onDateSelect = null;
+
+  function setTodayDate(iso) {
+    todayDate = iso;
+  }
+
+  function getSelectedDate() {
+    return selectedDate;
+  }
+
+  function isViewingToday() {
+    return selectedDate && todayDate && selectedDate === todayDate;
+  }
+
+  function parseTs(ts) {
+    if (!ts) return null;
+    const d = new Date(ts);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatTime(ts) {
+    const d = parseTs(ts);
+    if (!d) return "";
+    const h = String(d.getHours()).padStart(2, "0");
+    const m = String(d.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+
+  function formatDateLabel(iso) {
+    if (!iso) return iso;
+    if (iso === todayDate) return "今天";
+    const d = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return iso;
+    const now = todayDate ? new Date(`${todayDate}T12:00:00`) : new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yIso = yesterday.toISOString().slice(0, 10);
+    if (iso === yIso) return "昨天";
+    if (d.getFullYear() === now.getFullYear()) {
+      return `${d.getMonth() + 1}月${d.getDate()}日`;
+    }
+    return iso;
+  }
+
+  function formatWeekday(iso) {
+    const d = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return "";
+    const w = ["日", "一", "二", "三", "四", "五", "六"];
+    return `周${w[d.getDay()]}`;
+  }
+
+  function renderMeta(role, timestamp) {
+    const label = role === "user" ? "你" : "助手";
+    const time = formatTime(timestamp);
+    const timeHtml = time ? `<span class="msg-time">${time}</span>` : "";
+    return `<div class="meta"><span class="msg-role">${label}</span>${timeHtml}</div>`;
+  }
+
+  function updateComposerState() {
+    const viewingToday = isViewingToday();
+    const f = form();
+    const hint = readonlyHint();
+    if (f) f.classList.toggle("hidden", !viewingToday);
+    if (hint) hint.classList.toggle("hidden", viewingToday);
+  }
+
+  function renderDateSidebar(dates, activeDate) {
+    selectedDate = activeDate;
+    const el = sidebar();
+    if (!el) return;
+    el.innerHTML = "";
+
+    const list = [...(dates || [])].reverse();
+    if (todayDate && !list.includes(todayDate)) {
+      list.unshift(todayDate);
+    }
+
+    if (!list.length && todayDate) {
+      list.push(todayDate);
+    }
+
+    for (const iso of list) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chat-date-item";
+      if (iso === activeDate) btn.classList.add("is-active");
+      btn.dataset.date = iso;
+      const main = formatDateLabel(iso);
+      const sub = iso === todayDate || iso === activeDate ? formatWeekday(iso) : iso.slice(5);
+      btn.innerHTML =
+        `<span class="chat-date-main">${escapeHtml(main)}</span>` +
+        `<span class="chat-date-sub">${escapeHtml(sub)}</span>`;
+      btn.addEventListener("click", () => {
+        if (iso === selectedDate) return;
+        if (typeof onDateSelect === "function") onDateSelect(iso);
+      });
+      el.appendChild(btn);
+    }
+    updateComposerState();
+  }
+
+  function setDateSelectHandler(fn) {
+    onDateSelect = fn;
+  }
+
+  function renderMessages(messages, activeDate) {
+    if (activeDate) selectedDate = activeDate;
     const el = box();
     el.innerHTML = "";
     for (const m of messages) {
-      appendBubble(m.role, m.content, false);
+      appendBubble(m.role, m.content, { scroll: false, timestamp: m.timestamp });
     }
     el.scrollTop = el.scrollHeight;
+    updateComposerState();
   }
 
-  function appendBubble(role, content, scroll = true) {
+  function appendBubble(role, content, opts = {}) {
+    const { scroll = true, timestamp = null } = opts;
     const el = box();
     const div = document.createElement("div");
     div.className = `msg ${role}`;
-    const label = role === "user" ? "你" : "助手";
-    div.innerHTML = `<div class="meta">${label}</div>${escapeHtml(content)}`;
+    div.innerHTML = `${renderMeta(role, timestamp)}${escapeHtml(content)}`;
     el.appendChild(div);
     if (scroll) el.scrollTop = el.scrollHeight;
     return div;
@@ -46,13 +159,13 @@ const ChatUI = (() => {
     });
   }
 
-  /** 单条助手消息：Thinking（可折叠）+ 流式/最终回复 */
-  function appendAssistantBlock() {
+  function appendAssistantBlock(timestamp = null) {
     const el = box();
     const div = document.createElement("div");
     div.className = "msg assistant msg-assistant-block";
+    const ts = timestamp || new Date().toISOString();
     div.innerHTML =
-      '<div class="meta">助手</div>' +
+      renderMeta("assistant", ts) +
       '<div class="assistant-block">' +
       '<div class="thinking-wrap">' +
       '<button type="button" class="thinking-toggle" aria-expanded="false">' +
@@ -160,11 +273,17 @@ const ChatUI = (() => {
   function setLoading(loading) {
     const btn = document.getElementById("send-btn");
     const input = document.getElementById("chat-input");
+    if (!isViewingToday()) return;
     btn.disabled = loading;
     input.disabled = loading;
   }
 
   return {
+    setTodayDate,
+    getSelectedDate,
+    isViewingToday,
+    setDateSelectHandler,
+    renderDateSidebar,
     renderMessages,
     appendBubble,
     appendAssistantBlock,

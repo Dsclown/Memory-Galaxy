@@ -2,6 +2,12 @@
 
 **把 Agent 的长期记忆做成「看得见、改得了、用得准」的个人知识星图。**
 
+## 界面预览
+
+![Memory Galaxy 界面预览](image.png)
+
+*左：按日期切换的对话与流式 Thinking；右：记忆星图，支持多模块同时展开编辑。*
+
 ---
 
 ## 这是什么
@@ -39,12 +45,13 @@ Memory Galaxy 的核心回应是：**把记忆从后台能力，变成用户能�
 
 | 模块 | 说明 |
 |------|------|
-| 聊天 | 按日期保存到 `data/users/{用户}/chats/YYYY-MM-DD.json` |
+| 聊天 | 按日期保存到 `data/users/{用户}/chats/YYYY-MM-DD.json`；左侧日期栏切换查看，消息显示时间 |
 | 流式对话 | `POST /api/chat/stream`：SSE 推送路由 Thinking + 回复增量 |
 | 记忆模块 | 每模块一个 `modules/{英文slug}.html`，中文名在 `<article data-title="…">` |
 | 模块路由 | 近 N 轮 + 当前输入 → LLM 返回 `related_modules` + `route_thought` |
 | 对话生成 | 相关模块内容 + 上下文 → `reply` + `module_updates` |
-| 星图 UI | 用户名为中心，模块为节点；展开编辑、拖动、右下角缩放、布局本地缓存 |
+| 星图 UI | 用户名为中心，模块为节点；可多节点同时展开；拖动、右下角缩放、布局 localStorage 缓存 |
+| 响应式布局 | PC 左聊右图；手机/窄屏上星图、下聊天 |
 | Wiki 编辑器 | 节点内 `New part` 增分节、`+` 增条目，分节名与正文可点击编辑 |
 | 多用户 | 用户名登录（Session），聊天与记忆按用户目录隔离 |
 
@@ -86,7 +93,8 @@ chmod +x run.sh
 
 ```
 memory_galaxy/
-├── config.yaml              # 主配置
+├── image.png                # README 界面预览图
+├── config.yaml.example      # 配置模板（复制为 config.yaml，勿提交密钥）
 ├── prompts/                 # Prompt 模板（每项一个 .md）
 │   ├── module_router_system.md
 │   ├── module_router_user.md
@@ -135,11 +143,13 @@ memory_galaxy/
 
 - 聊天：按日 JSON 数组，`role` + `content`。
 - 模块：Wiki 结构 HTML，磁盘文件名仅英文 slug；LLM 返回的 HTML 经 `validate_wiki_html` 校验，不合规则丢弃并打错误日志。
-- 路由上下文**不带**全量历史，仅 `recent_turns_limit` 条 + 当前输入。
+- 路由上下文**不带**全量历史，仅 `recent_turns_limit` 条 + 当前输入（均为**当日**聊天文件）。
+- 界面可浏览历史日期的聊天记录，但**仅「今天」**可发送新消息。
 
 ### 星图交互
 
-- **foreignObject** 在节点内展开圆角编辑框；标题栏拖动节点，右下角缩放（左上角锚定）。
+- **foreignObject** 在节点内展开圆角编辑框；支持**多个模块同时展开**；点击画布空白不会收起。
+- 标题栏拖动节点，右下角缩放（左上角锚定）；用节点内 **×** 收起单个模块。
 - 节点坐标、展开尺寸、画布 zoom 写入 `localStorage`（键：`memory_galaxy:layout:{用户名}`）。
 
 ---
@@ -204,7 +214,9 @@ memory_galaxy/
 | POST | `/api/auth/login` | 登录 `{ "username": "…" }` |
 | POST | `/api/auth/logout` | 退出 |
 | GET | `/api/auth/me` | 当前用户 |
+| GET | `/api/chats` | 已有聊天日期列表 |
 | GET | `/api/chats/today` | 今日聊天记录 |
+| GET | `/api/chats/{day}` | 指定日期聊天记录 |
 | **POST** | **`/api/chat/stream`** | **流式聊天（推荐，SSE）** |
 | POST | `/api/chat/route` | 仅路由（分步调试） |
 | POST | `/api/chat/complete` | 仅对话（分步调试） |
@@ -216,7 +228,6 @@ memory_galaxy/
 
 ## 后续可扩展（未实现）
 
-- 历史日期聊天切换查看
 - 记忆更新的人工确认 / 撤销
 - 对话阶段 Thinking 也在 UI 展示（目前仅路由 Thinking）
 - 模块间关联边（子模块、时间线）

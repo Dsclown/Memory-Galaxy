@@ -4,53 +4,81 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Memory Galaxy · 记忆星图</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 </head>
 <body>
   <header class="app-header">
-    <h1>Memory Galaxy</h1>
-    <span id="user-badge" class="badge user-badge hidden"></span>
-    <span id="status-badge" class="badge">连接中…</span>
-    <button type="button" id="logout-btn" class="btn-text hidden">退出</button>
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">✦</span>
+      <div class="brand-text">
+        <h1>Memory Galaxy</h1>
+        <span class="brand-tagline">记忆星图</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="user-badge" class="badge user-badge hidden"></span>
+      <span id="status-badge" class="badge">连接中…</span>
+      <button type="button" id="logout-btn" class="btn-text hidden">退出</button>
+    </div>
   </header>
 
   <main id="app-main" class="layout hidden">
-    <!-- 左侧：聊天 -->
-    <section class="panel chat-panel">
-      <div class="panel-title">对话</div>
-      <div id="chat-messages" class="chat-messages"></div>
-      <form id="chat-form" class="chat-input-row">
-        <textarea id="chat-input" rows="2" placeholder="输入消息… (Enter 发送, Shift+Enter 换行)" required></textarea>
-        <button type="submit" id="send-btn">发送</button>
-      </form>
-    </section>
-
-    <!-- 右侧：星图记忆 -->
+    <!-- DOM 顺序：星图在前，便于手机端自然上星图下聊天；PC 用 grid-column 左右排布 -->
     <section class="panel galaxy-panel">
-      <div class="panel-title">记忆星图</div>
+      <div class="panel-title">
+        <span class="panel-title-icon">✦</span>
+        <span>记忆星图</span>
+      </div>
       <div id="galaxy-svg-wrap" class="galaxy-wrap">
+        <div class="galaxy-bg-layer" aria-hidden="true"></div>
         <svg id="galaxy-svg"></svg>
       </div>
-      <p class="galaxy-tip">展开后拖右下角改大小 · 工具栏增删分节/条目 · 拖标题栏/边框移动节点 · 空白处平移 · 滚轮缩放画布</p>
+      <p class="galaxy-tip">拖标题栏移动节点 · 右下角缩放 · 空白处平移画布 · 滚轮缩放</p>
+    </section>
+
+    <section class="panel chat-panel">
+      <div class="panel-title">
+        <span class="panel-title-icon">💬</span>
+        <span>对话</span>
+      </div>
+      <div class="chat-body">
+        <nav id="chat-date-sidebar" class="chat-date-sidebar" aria-label="聊天日期"></nav>
+        <div class="chat-main">
+          <div id="chat-messages" class="chat-messages"></div>
+          <p id="chat-readonly-hint" class="chat-readonly-hint hidden">正在查看历史记录，选择「今天」可继续对话</p>
+          <form id="chat-form" class="chat-input-row">
+            <textarea id="chat-input" rows="2" placeholder="输入消息… Enter 发送 · Shift+Enter 换行" required></textarea>
+            <button type="submit" id="send-btn" class="btn-send" aria-label="发送">
+              <span class="btn-send-text">发送</span>
+            </button>
+          </form>
+        </div>
+      </div>
     </section>
   </main>
 
-  <!-- 登录 -->
   <dialog id="login-dialog" class="login-dialog">
     <form id="login-form">
-      <h2>登录</h2>
-      <p class="login-desc">输入用户名即可，聊天与记忆将按用户分别保存</p>
+      <div class="login-brand">
+        <span class="login-icon" aria-hidden="true">✦</span>
+        <h2>进入记忆星图</h2>
+      </div>
+      <p class="login-desc">输入用户名即可开始。聊天与记忆将为你单独保存。</p>
+      <label class="login-label" for="login-username">用户名</label>
       <input
         id="login-username"
         type="text"
-        placeholder="用户名（2–24 字）"
+        placeholder="2–24 个字符"
         autocomplete="username"
         required
         minlength="2"
         maxlength="24"
       />
-      <button type="submit" class="btn-primary btn-block">进入星图</button>
+      <button type="submit" class="btn-primary btn-block">进入</button>
     </form>
   </dialog>
 

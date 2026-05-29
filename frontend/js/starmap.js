@@ -13,8 +13,10 @@ const StarMap = (() => {
   let userName = "用户";
   let modules = [];
   let callbacks = {};
-  let expandedId = null;
-  let expandedHtml = "";
+  /** @type {Set<string>} */
+  const expandedIds = new Set();
+  /** @type {Map<string, string>} */
+  const expandedHtmlById = new Map();
   let dragMoved = false;
   let graphNodes = [];
   let graphLinks = [];
@@ -163,12 +165,6 @@ const StarMap = (() => {
 
     resize();
     window.addEventListener("resize", resize);
-
-    svg.on("click", (event) => {
-      if (event.target.classList?.contains("galaxy-bg") || event.target.classList?.contains("galaxy-pan-bg")) {
-        collapseExpand();
-      }
-    });
   }
 
   function savePositions() {
@@ -209,7 +205,7 @@ const StarMap = (() => {
   }
 
   function isExpandedNode(d) {
-    return d.type === "module" && d.id === expandedId;
+    return d.type === "module" && expandedIds.has(d.id);
   }
 
   function canDragNode(event, d) {
@@ -285,7 +281,7 @@ const StarMap = (() => {
 
   function collisionRadius(d) {
     if (d.type === "center") return 48;
-    if (d.id === expandedId) {
+    if (expandedIds.has(d.id)) {
       const { w, h } = getExpandedSize(d);
       return Math.hypot(w, h) / 2 + 16;
     }
@@ -295,7 +291,7 @@ const StarMap = (() => {
   function linkDistance(d) {
     const tid = typeof d.target === "object" ? d.target.id : d.target;
     const sid = typeof d.source === "object" ? d.source.id : d.source;
-    return expandedId && (tid === expandedId || sid === expandedId) ? 200 : 120;
+    return expandedIds.has(tid) || expandedIds.has(sid) ? 200 : 120;
   }
 
   function updateForces() {
@@ -323,21 +319,21 @@ const StarMap = (() => {
           ? WikiEditor.getContent(editor)
           : editor
             ? editor.innerHTML
-            : expandedHtml;
+            : expandedHtmlById.get(d.id) || "";
 
       if (action === "collapse") {
-        collapseExpand();
+        collapseModule(d.id);
         return;
       }
       if (action === "save" && callbacks.onModuleSave) {
         await callbacks.onModuleSave(d.id, html);
-        expandedHtml = html;
+        expandedHtmlById.set(d.id, html);
       }
       if (action === "delete" && callbacks.onModuleDelete) {
         if (!confirm(`确定删除模块「${d.id}」？`)) return;
         await callbacks.onModuleDelete(d.id);
-        expandedId = null;
-        expandedHtml = "";
+        expandedIds.delete(d.id);
+        expandedHtmlById.delete(d.id);
         syncGraph(true);
       }
     });
@@ -449,8 +445,9 @@ const StarMap = (() => {
         return;
       }
 
-      if (d.id === expandedId) {
+      if (expandedIds.has(d.id)) {
         const { w, h } = getExpandedSize(d);
+        const moduleHtml = expandedHtmlById.get(d.id) || "";
         const hw = w / 2;
         const hh = h / 2;
         shape
@@ -483,7 +480,7 @@ const StarMap = (() => {
 
         const editor = body.append("div").attr("class", "module-inline-editor");
 
-        editor.html(expandedHtml);
+        editor.html(moduleHtml);
         const editorNode = editor.node();
         if (editorNode && typeof WikiEditor !== "undefined") {
           WikiEditor.enhanceEditor(editorNode);
@@ -551,8 +548,8 @@ const StarMap = (() => {
 
     graphNodes = nodes;
 
-    if (expandedId) {
-      const expanded = nodes.find((n) => n.id === expandedId);
+    for (const id of expandedIds) {
+      const expanded = nodes.find((n) => n.id === id);
       if (expanded) pinNodeAtCurrent(expanded);
     }
     graphLinks = links;
@@ -606,7 +603,7 @@ const StarMap = (() => {
 
     nodeAll.attr("class", (d) => {
       let c = d.type === "center" ? "node node-center" : "node node-module";
-      if (d.id === expandedId) c += " node-expanded";
+      if (expandedIds.has(d.id)) c += " node-expanded";
       return c;
     });
     nodeAll.style("cursor", moduleCursor);
@@ -629,7 +626,7 @@ const StarMap = (() => {
   function applyExpandVisual() {
     gNodes.selectAll("g.node").attr("class", (d) => {
       let c = d.type === "center" ? "node node-center" : "node node-module";
-      if (d.id === expandedId) c += " node-expanded";
+      if (expandedIds.has(d.id)) c += " node-expanded";
       return c;
     });
     gNodes.selectAll("g.node").style("cursor", moduleCursor);
@@ -637,26 +634,26 @@ const StarMap = (() => {
     updateForces();
   }
 
-  function releaseExpandedPin() {
-    const prev = graphNodes.find((n) => n.id === expandedId);
-    if (prev) pinNodeAtCurrent(prev);
-  }
-
-  function collapseExpand() {
-    if (!expandedId) return;
-    releaseExpandedPin();
-    expandedId = null;
-    expandedHtml = "";
+  function collapseModule(id) {
+    if (!expandedIds.has(id)) return;
+    const node = graphNodes.find((n) => n.id === id);
+    if (node) pinNodeAtCurrent(node);
+    expandedIds.delete(id);
+    expandedHtmlById.delete(id);
     applyExpandVisual();
   }
 
+  function collapseExpand() {
+    for (const id of [...expandedIds]) {
+      collapseModule(id);
+    }
+  }
+
   async function toggleModule(d) {
-    if (expandedId === d.id) {
-      collapseExpand();
+    if (expandedIds.has(d.id)) {
+      collapseModule(d.id);
       return;
     }
-
-    if (expandedId) releaseExpandedPin();
 
     if (!callbacks.onModuleOpen) return;
 
@@ -664,8 +661,9 @@ const StarMap = (() => {
     pinNodeAtCurrent(target);
 
     try {
-      expandedHtml = await callbacks.onModuleOpen(d.id);
-      expandedId = d.id;
+      const html = await callbacks.onModuleOpen(d.id);
+      expandedHtmlById.set(d.id, html);
+      expandedIds.add(d.id);
       applyExpandVisual();
     } catch (e) {
       console.error(e);
@@ -676,9 +674,11 @@ const StarMap = (() => {
     userName = name || "用户";
     modules = moduleList || [];
     loadLayoutFromStorage();
-    if (expandedId && !modules.find((m) => m.id === expandedId)) {
-      expandedId = null;
-      expandedHtml = "";
+    for (const id of [...expandedIds]) {
+      if (!modules.find((m) => m.id === id)) {
+        expandedIds.delete(id);
+        expandedHtmlById.delete(id);
+      }
     }
     syncGraph(!graphReady);
   }

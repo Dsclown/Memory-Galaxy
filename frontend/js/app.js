@@ -77,24 +77,57 @@
     logoutBtn.classList.remove("hidden");
     appMain.classList.remove("hidden");
 
-    ChatUI.renderMessages([]);
+    ChatUI.setDateSelectHandler((day) => loadChatForDate(day));
+    await refreshChatDatesAndLoadToday();
+    await reloadModules();
+  }
+
+  async function refreshChatDates() {
+    const [datesRes, todayRes] = await Promise.all([
+      API.get("/api/chats"),
+      API.get("/api/chats/today"),
+    ]);
+    ChatUI.setTodayDate(todayRes.date);
+    return { dates: datesRes.dates || [], today: todayRes.date };
+  }
+
+  async function loadChatForDate(day) {
     try {
-      const today = await API.get("/api/chats/today");
-      ChatUI.renderMessages(today.messages || []);
+      const todayRes = await API.get("/api/chats/today");
+      ChatUI.setTodayDate(todayRes.date);
+      const data =
+        day === todayRes.date
+          ? todayRes
+          : await API.get(`/api/chats/${encodeURIComponent(day)}`);
+      const datesRes = await API.get("/api/chats");
+      ChatUI.renderDateSidebar(datesRes.dates || [], day);
+      ChatUI.renderMessages(data.messages || [], day);
     } catch (e) {
       console.warn(e);
     }
-    await reloadModules();
+  }
+
+  async function refreshChatDatesAndLoadToday() {
+    try {
+      const { dates, today } = await refreshChatDates();
+      const todayData = await API.get("/api/chats/today");
+      ChatUI.renderDateSidebar(dates, today);
+      ChatUI.renderMessages(todayData.messages || [], today);
+    } catch (e) {
+      console.warn(e);
+    }
   }
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!ChatUI.isViewingToday()) return;
     const input = document.getElementById("chat-input");
     const text = input.value.trim();
     if (!text) return;
 
+    const now = new Date().toISOString();
     input.value = "";
-    ChatUI.appendBubble("user", text);
+    ChatUI.appendBubble("user", text, { timestamp: now });
     ChatUI.setLoading(true);
     const assistantEl = ChatUI.appendAssistantBlock();
     assistantEl.classList.add("is-streaming");
@@ -130,6 +163,8 @@
         }
       });
       if (modulesToReload) await reloadModules(modulesToReload);
+      const { dates, today } = await refreshChatDates();
+      ChatUI.renderDateSidebar(dates, today);
     } catch (err) {
       if (err.status === 401) {
         showLogin();
